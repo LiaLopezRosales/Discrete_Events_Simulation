@@ -1,6 +1,5 @@
 import numpy as np
 from scipy import stats
-import matplotlib.pyplot as plt
 import heapq
 
 class InsuranceRiskSimulation:
@@ -15,6 +14,8 @@ class InsuranceRiskSimulation:
         self.claim_dist = claim_dist  # Función que genera montos de reclamos 
         self.t = 0            # Tiempo actual
         self.events = []      # Cola de eventos con prioridad
+        self.history = [(0.0, a0)]  # Registro de (tiempo, capital)
+        self.ruin_time = None  # Tiempo de ruina
         self.I = 1            # Variable de salida (1 si capital ≥ 0 hasta T)
         
         self.schedule_next_event()
@@ -38,6 +39,7 @@ class InsuranceRiskSimulation:
             delta_t = self.T - self.t
             self.capital += self.n * self.c * delta_t
             self.t = self.T
+            self.history.append((self.t, self.capital))
             self.I = 1
             return
         
@@ -45,6 +47,7 @@ class InsuranceRiskSimulation:
         delta_t = event_time - self.t
         self.capital += self.n * self.c * delta_t
         self.t = event_time
+        self.history.append((self.t, self.capital))
         
         # Determinar tipo de evento
         total_rate = self.nu + self.n * (self.mu + self.lambd)
@@ -65,6 +68,7 @@ class InsuranceRiskSimulation:
             Y = self.claim_dist()
             if Y > self.capital:
                 self.I = 0
+                self.ruin_time = self.t
                 return
             self.capital -= Y
         
@@ -91,22 +95,4 @@ class InsuranceRiskSimulation:
             
         return self.I
 
-# Ejemplo de prueba
-nu = 0.1       
-mu = 0.05      
-lambd = 0.25    
-c = 10         
-a0 = 87       
-n0 = 5         
-T = 365        
-claim_dist = lambda: np.random.exponential(scale=30)  # Reclamos 
 
-# Simular múltiples veces
-N_sim = 1000
-success_count = 0
-for _ in range(N_sim):
-    sim = InsuranceRiskSimulation(nu, mu, lambd, c, a0, n0, T, claim_dist)
-    success_count += sim.run()
-
-probability = success_count / N_sim
-print(f"Probabilidad de no quiebra: {probability:.4f}")
