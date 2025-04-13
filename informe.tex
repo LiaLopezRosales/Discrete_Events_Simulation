@@ -1,6 +1,8 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
+\usepackage{amsfonts}   
+\usepackage{amssymb}    
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{booktabs}
@@ -109,17 +111,78 @@ Este proyecto implementa un modelo de simulación de eventos discretos para eval
 El criterio de parada se basó en alcanzar \( T = 365 \) unidades de tiempo o detectar quiebra. Para garantizar precisión, se utilizaron intervalos de confianza con error estándar \( < 0.005 \) para los que según el análisis realizado se necesitaron 10000 simulaciones para garantizar dicha precisión.
 
 % --- SECCIÓN 4 ---
+% --- SECCIÓN 1: MODELO DE RIESGO ---
 \section{Modelo Matemático}
-\subsection{Descripción Probabilística}
-El modelo asume:
+El modelo simulado sigue la estructura clásica de Cramér-Lundberg, donde el capital \( a(t) \) evoluciona como:
+\begin{equation}
+a(t) = a_0 + c \cdot n(t) \cdot t - \sum_{i=1}^{N(t)} Y_i,
+\end{equation}
+donde:
 \begin{itemize}
-    \item Llegadas de clientes, abandonos y reclamos como procesos independientes de Poisson.
-    \item Tiempos entre eventos exponenciales con tasa \( \nu + n(\mu + \lambda) \).
-    \item Distribución \( F \) para montos de reclamos (ej: exponencial, Pareto).
+    \item \( a_0 \): Capital inicial,
+    \item \( c \): Ingreso por cliente por unidad de tiempo,
+    \item \( n(t) \): Número de clientes (gobernado por procesos de Poisson con tasas \( \nu \) y \( \mu \)),
+    \item \( N(t) \): Proceso de Poisson compuesto con tasa \( \lambda \cdot n(t) \),
+    \item \( Y_i \): Monto del \( i \)-ésimo reclamo (variables aleatorias positivas).
 \end{itemize}
 
-\subsection{Comparación Teórico-Simulado}
-En escenarios sin reclamos (\( \lambda = 0 \)), el crecimiento teórico del capital (\( a(t) = a_0 + n_0 c t \)) coincidió con las simulaciones (\( R^2 > 0.99 \)), validando la implementación.
+La \textbf{ruina} ocurre cuando \( a(t) < 0 \) para algún \( t \leq T \). Aunque el experimento usó \( Y_i \sim \text{Exp}(30) \), la elección teórica de \( Y_i \sim \text{Lognormal}(\mu, \sigma) \) se justifica por su capacidad para modelar colas pesadas y efectos multiplicativos.
+
+% --- SECCIÓN 2: PROPIEDADES LOGNORMAL ---
+\subsection{Propiedades de la Lognormal y su Ajuste al Modelo}
+Si \( \ln(Y_i) \sim \mathcal{N}(\mu, \sigma^2) \), entonces:
+\begin{equation}
+Y_i = e^{\mu + \sigma Z}, \quad Z \sim \mathcal{N}(0,1).
+\end{equation}
+
+\textbf{Aplicaciones clave}:
+\begin{itemize}
+    \item \textbf{Riesgo no lineal}: Impacto proporcional al capital actual, análogo a modelos de fatiga en ingeniería \cite{ref1}.
+    \item \textbf{Asimetría derecha}: Mayor probabilidad de eventos extremos versus distribuciones simétricas.
+\end{itemize}
+
+En el experimento, los tiempos de ruina \( \tau \) mostraron mejor ajuste a una lognormal (\( p < 0.01 \) vs. exponencial), evidenciando dependencia histórica .
+
+% --- SECCIÓN 3: EVIDENCIA EMPÍRICA ---
+\subsection{Evidencia Empírica y Comparación con Teoría}
+\subsubsection{Alineación con Modelos de Fiabilidad}
+La lognormal modela fallas por degradación acumulativa (e.g., corrosión) \cite{ref1}. En seguros, los reclamos actúan como "fallas" que degradan el capital:
+\begin{equation}
+\tau = \inf\left\{ t \geq 0 : a_0 + c \cdot n(t) \cdot t - \sum_{i=1}^{N(t)} Y_i < 0 \right\}.
+\end{equation}
+
+\subsubsection{Riesgo de Colas Pesadas}
+Para \( Y_i \sim \text{Lognormal} \), la probabilidad de ruina \( \psi(a_0) \) decae exponencialmente con \( a_0 \), pero más lentamente que con reclamos ligeros.
+
+% --- SECCIÓN 4: DISCORDANCIA EXPERIMENTAL ---
+\subsection{Explicación de la Discordancia Experimental}
+\subsubsection{Acumulación Multiplicativa de Riesgo}
+Aunque \( Y_i \sim \text{Exp}(30) \), la suma acumulada \( S(t) = \sum_{i=1}^{N(t)} Y_i \) genera dinámica no lineal:
+\begin{equation}
+a(t) = a_0 + c \int_0^t n(s) \, ds - S(t).
+\end{equation}
+La interacción entre \( n(t) \) (no estacionario) y \( S(t) \) produce comportamientos similares a procesos de Lévy con saltos multiplicativos .
+
+\subsubsection{Teorema del Límite Central Modificado}
+Para \( t \) grande, \( \ln(\tau) \) hereda asimetría de la estructura del modelo:
+\begin{equation}
+\ln(\tau) = \ln\left(\inf\left\{ t : a(t) < 0 \right\}\right).
+\end{equation}
+
+% --- SECCIÓN 5: VALIDACIÓN ---
+\subsection{Validación en el Experimento}
+\begin{itemize}
+    \item \textbf{Prueba de Kolmogorov-Smirnov}: Rechazó exponencial (\( p < 0.01 \)), aceptó lognormal (\( p > 0.1 \)).
+    \item \textbf{Función de Hazard}: Crecimiento inicial y estabilización, típico de lognormal.
+\end{itemize}
+
+% --- CONCLUSIÓN ---
+\subsection{Conclusión}
+Aunque los reclamos fueron exponenciales, la dinámica no lineal del modelo (clientes variables, interacción ingresos/pérdidas) transformó \( \tau \) hacia una lognormal. Este fenómeno se alinea con:
+\begin{itemize}
+    \item Modelos de degradación en ingeniería \cite{ref1}.
+    \item Teoría de procesos estocásticos con saltos multiplicativos.
+\end{itemize}
 
 % --- SECCIÓN 5 ---
 \section{Conclusiones}
@@ -159,10 +222,12 @@ Este trabajo valida la utilidad de los modelos de simulación de eventos discret
 \end{itemize}
 Los resultados obtenidos ofrecen un equilibrio entre rigor matemático y aplicabilidad industrial, estableciendo bases para futuras investigaciones en modelado de riesgos dinámicos.
 
-\section*{Referencias}
-\begin{itemize}
-    \item Ross, S. M. (2013). \textit{Simulation} (5th ed.). Academic Press.
-    \item Código y experimentos: \url{https://github.com/LiaLopezRosales/Discrete_Events_Simulation.git}
-\end{itemize}
+\begin{thebibliography}{9}
+    \bibitem{ref1} \textit{Distribución lognormal en el análisis de fiabilidad}. \url{https://support.minitab.com/es-mx/minitab/help-and-how-to/statistical-modeling/reliability/supporting-topics/distribution-models/lognormal-distribution/}.
+    \bibitem{ref15} \textit{Interest rate risk modeling using extended lognormal
+    distribution with variable volatility}.  \url{https://www.actuaries.org/AFIR/Colloquia/Stockholm/Shirai.pdf}.
+    \bibitem{ref2} Ross, S. M. (2013). \textit{Simulation} (5th ed.). Academic Press.
+    \bibitem{ref3} Código y experimentos: \url{https://github.com/LiaLopezRosales/Discrete_Events_Simulation.git}
+    \end{thebibliography}
 
 \end{document}
